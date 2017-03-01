@@ -1,0 +1,6 @@
+/build
+/Deployment/*.frag
+/Deployment/*.vert
+Thumbs.db
+/Deployment/run
+*.synctex.gz
