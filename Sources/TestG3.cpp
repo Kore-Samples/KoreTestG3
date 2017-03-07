@@ -47,10 +47,58 @@ struct MeshBuffer {
 	IndexBuffer* indexBuffer;
 };
 
+static float random(float min, float max) {
+    float r = static_cast<float>(rand()) / RAND_MAX;
+    return min + r * (max - min);
+}
+
+struct Particle {
+    Particle() {
+        reset();
+
+        for (int i = 0, n = rand() % 300; i < n; ++i)
+            simulate(1.0f / 60.0f);
+    }
+
+    void simulate(float dt) {
+        time += dt;
+
+        const vec3 gForce = vec3(0, -9.81f, 0);
+
+        const vec3 acceleration = gForce * 0.1f;
+
+        velocity += acceleration * dt;
+
+        position += velocity * dt;
+
+        if (position.y() < -2.0f) {
+            reset();
+        }
+    }
+
+    float getAlpha() const {
+        return std::min(1.0f, time*2.0f);
+    }
+
+    void reset() {
+        time = 0.0f;
+        position = vec3(0, 0, 0);
+        const float spread = 0.3f;
+        velocity[0] = random(-spread, spread);
+        velocity[1] = 1.3f;
+        velocity[2] = random(-spread, spread);
+    }
+
+    vec3 position;
+    vec3 velocity;
+    float time;
+};
+
 VertexStructure vertexStructure;
 std::vector<MeshBuffer*> meshBuffers;
 std::vector<Light*> lights;
 std::vector<Texture*> textures;
+std::vector<Particle> particles;
 
 // Scene parameters
 std::size_t activeScene             = 0;
@@ -218,6 +266,7 @@ void updateProjection() {
     }
 
     vMatrix = mat4::Translation(0, 0.0f, -2.5f);
+    //vMatrix *= mat4::RotationX(DEG_2_RAD(15.0f));
 
     wMatrix = mat4::Identity();
 }
@@ -256,9 +305,10 @@ void initScene() {
     addMesh("TessellatedCube_Bumped2.obj", 0.4f);
     addMesh("Terrain.obj", 1.0f);
     addMesh("TessellatedPlane.obj", 1.0f);
+    addMesh("ParticleQuad.obj", 0.25f);
 
     // Create light source
-    addPointLight(vec3(0, 0, 1.7), vec3(1, 1, 1));
+    addPointLight(vec3(0, 0, 1.7f), vec3(1, 1, 1));
 
     const float spotLightDist = 0.35f;
     addSpotLight(vec3(0, spotLightDist, 1), vec3(1, 0.2f, 0.2f), 128.0f, 15.0f);//->setDirection(vec3(0, -0.2f, 1).normalize());
@@ -270,10 +320,12 @@ void initScene() {
     addTexture("SphereMap1.jpg");
     addTexture("Grass.jpg");
     addTexture("Metal.jpg");
+    addTexture("Sprite.jpg");
 
     debStep("Loading Textures Done");
 
-
+    // Add particles
+    particles.resize(30);
 }
 
 void releaseScene() {
@@ -362,6 +414,13 @@ void onDrawFrame() {
             Graphics3::setTexCoordGeneration(texUnit0, TexCoordY, TexGenDisabled);
             Graphics3::setTextureMapping(texUnit0, Texture2D, true);
         }
+        else if (activeScene == 6)
+        {
+            Graphics3::setTexture(texUnit0, textures[4]);
+            Graphics3::setTexCoordGeneration(texUnit0, TexCoordX, TexGenDisabled);
+            Graphics3::setTexCoordGeneration(texUnit0, TexCoordY, TexGenDisabled);
+            Graphics3::setTextureMapping(texUnit0, Texture2D, true);
+        }
         else
             Graphics3::setTextureMapping(texUnit0, Texture2D, false);
     }
@@ -374,19 +433,63 @@ void onDrawFrame() {
 	Graphics3::setRenderState(FogStart, 1.0f);
 	Graphics3::setRenderState(FogEnd, ((Kore::cos(DEG_2_RAD(fogInterval)) + 1.0f) * 2.5f) + 2.0f);
 	Graphics3::setRenderState(FogDensity, (Kore::cos(DEG_2_RAD(fogInterval * 0.5f)) + 1.0f) * 0.5f);
-		
+
 	Graphics3::setFogColor(Kore::Color(0xff808080));
 	Graphics3::setRenderState(FogType, activeFogType);
 	Graphics3::setRenderState(FogState, fogEnabled);
 
     // Setup scene greometry
-    Graphics3::setViewMatrix(vMatrix.Invert());
-    Graphics3::setWorldMatrix(wMatrix);
-
     MeshBuffer* meshBuf = meshBuffers[activeScene];
 	Graphics3::setIndexBuffer(*meshBuf->indexBuffer);
 	Graphics3::setVertexBuffer(*meshBuf->vertexBuffer);
-	Graphics3::drawIndexedVertices();
+
+    if (activeScene == 6)
+    {
+        // Set material states for particles
+	    Graphics3::setRenderState(DepthTest, false);
+        Graphics3::setRenderState(DepthWrite, false);
+        Graphics3::setRenderState(Lighting, false);
+        Graphics3::setRenderState(BlendingState, true);
+        Graphics3::setBlendingMode(SourceAlpha, BlendOne);
+
+        // Setup view matrix
+        Graphics3::setViewMatrix(vMatrix.Invert());
+
+        // Set world matrix to view rotation
+        mat4 wMatrixParticle = vMatrix;
+
+        const float deltaTime = 1.0f/60.0f;
+
+        for (std::vector<Particle>::iterator it = particles.begin(); it != particles.end(); ++it)
+        {
+            it->simulate(deltaTime);
+
+            // Locate world matrix to particle position
+            for (int i = 0; i < 3; ++i)
+                wMatrixParticle.Set(i, 3, it->position[i]);
+
+            Graphics3::setWorldMatrix(wMatrixParticle);
+            Graphics3::setMaterialState(SolidColor, vec4(1.0f, 1.0f, 1.0f, it->getAlpha()));
+
+            // Draw particle quads
+	        Graphics3::drawIndexedVertices();
+        }
+    }
+    else
+    {
+        // Set material states for standard geometry
+	    Graphics3::setRenderState(DepthTest, true);
+        Graphics3::setRenderState(DepthWrite, true);
+        Graphics3::setRenderState(Lighting, true);
+        Graphics3::setRenderState(BlendingState, false);
+
+        // Setup view- and world matrices
+        Graphics3::setViewMatrix(vMatrix.Invert());
+        Graphics3::setWorldMatrix(wMatrix);
+
+        // Draw geometry
+	    Graphics3::drawIndexedVertices();
+    }
 
 	Graphics3::end();
 	Graphics3::swapBuffers();
