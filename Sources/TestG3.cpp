@@ -1,7 +1,10 @@
 
 #include "Kore/pch.h"
 
+#ifdef _MSC_VER
 #define _USE_MATH_DEFINES
+#endif
+
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -16,23 +19,9 @@
 #include <Kore/Log.h>
 #include "ObjLoader.h"
 
-#include <dinput.h>
-#include <wbemidl.h>
-#include <oleauto.h>
-#include <stdio.h>
-
 #ifdef VR_RIFT 
 #include "Vr/VrInterface.h"
 #endif
-
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
-#include <Windows.h>
-#include <shlobj.h>
-#include <exception>
-#include <XInput.h>
-
-#include <string>
 
 
 #define DEG_2_RAD(X) ((X) * float(M_PI) / 180.0f)
