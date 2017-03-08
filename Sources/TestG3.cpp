@@ -320,7 +320,7 @@ void initScene() {
     addTexture("SphereMap1.jpg");
     addTexture("Grass.jpg");
     addTexture("Metal.jpg");
-    addTexture("Sprite.jpg");
+    addTexture("SpriteAlpha.png");
 
     debStep("Loading Textures Done");
 
@@ -450,7 +450,7 @@ void onDrawFrame() {
         Graphics3::setRenderState(DepthWrite, false);
         Graphics3::setRenderState(Lighting, false);
         Graphics3::setRenderState(BlendingState, true);
-        Graphics3::setBlendingMode(SourceAlpha, BlendOne);
+        Graphics3::setBlendingMode(SourceAlpha, InverseSourceAlpha);
 
         // Setup view matrix
         Graphics3::setViewMatrix(vMatrix.Invert());
