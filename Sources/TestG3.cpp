@@ -14,7 +14,7 @@
 #include <Kore/Input/Keyboard.h>
 #include <Kore/Input/Mouse.h>
 #include <Kore/Input/Gamepad.h>
-#include <Kore/Graphics/Graphics3.h>
+#include <Kore/Graphics3/Graphics.h>
 #include <Kore/Audio/Mixer.h>
 #include <Kore/Log.h>
 #include "ObjLoader.h"
@@ -43,8 +43,8 @@ struct MeshBuffer {
         delete indexBuffer;
     }
 
-	VertexBuffer* vertexBuffer;
-	IndexBuffer* indexBuffer;
+	Graphics3::VertexBuffer* vertexBuffer;
+	Graphics3::IndexBuffer* indexBuffer;
 };
 
 static float random(float min, float max) {
@@ -94,10 +94,10 @@ struct Particle {
     float time;
 };
 
-VertexStructure vertexStructure;
+Graphics4::VertexStructure vertexStructure;
 std::vector<MeshBuffer*> meshBuffers;
 std::vector<Light*> lights;
-std::vector<Texture*> textures;
+std::vector<Graphics3::Texture*> textures;
 std::vector<Particle> particles;
 
 // Scene parameters
@@ -107,7 +107,7 @@ bool        complexLightingEnabled  = false;
 bool        rotationEnabled         = true;
 bool        orthoProj               = false;
 bool        fogEnabled              = false;
-int         activeFogType           = LinearFog;
+int         activeFogType           = Graphics3::LinearFog;
 
 // Scene matrices
 mat4 pMatrix, vMatrix, wMatrix;
@@ -127,12 +127,12 @@ static void debStep(const std::string& s) {
 
 MeshBuffer* createMeshBuffer(
     const Mesh& mesh,
-    const VertexStructure& vertexStructure,
+    const Graphics4::VertexStructure& vertexStructure,
     float scale = 1.0f)
 {
     MeshBuffer* meshBuffer = new MeshBuffer();
 
-	meshBuffer->vertexBuffer = new VertexBuffer(mesh.numVertices, vertexStructure, 0);
+	meshBuffer->vertexBuffer = new Graphics3::VertexBuffer(mesh.numVertices, vertexStructure, 0);
 	{
 		float* vertices = meshBuffer->vertexBuffer->lock();
         {
@@ -161,7 +161,7 @@ MeshBuffer* createMeshBuffer(
 		meshBuffer->vertexBuffer->unlock();
 	}
 
-	meshBuffer->indexBuffer = new IndexBuffer(mesh.numFaces * 3);
+	meshBuffer->indexBuffer = new Graphics3::IndexBuffer(mesh.numFaces * 3);
 	{
 		int* indices = meshBuffer->indexBuffer->lock();
 		for (int i = 0; i < mesh.numFaces * 3; ++i) {
@@ -221,8 +221,8 @@ Light* addSpotLight(const vec3& position, const vec3& color, float spotExponent,
     return lit;
 }
 
-Texture* addTexture(const std::string& filename) {
-    Texture* tex = new Texture(filename.c_str());
+Graphics3::Texture* addTexture(const std::string& filename) {
+	Graphics3::Texture* tex = new Graphics3::Texture(filename.c_str());
     tex->generateMipmaps(0);
     textures.push_back(tex);
     return tex;
@@ -282,22 +282,22 @@ void initScene() {
     updateProjection();
 
     // Initializer render states
-	Graphics3::setRenderState(DepthTest, true);
-    Graphics3::setRenderState(DepthWrite, true);
-	Graphics3::setRenderState(DepthTestCompare, ZCompareLess);
-    Graphics3::setRenderState(Lighting, true);
-    Graphics3::setRenderState(Normalize, true);
+	Graphics3::setRenderState(Graphics3::DepthTest, true);
+    Graphics3::setRenderState(Graphics3::DepthWrite, true);
+	Graphics3::setRenderState(Graphics3::DepthTestCompare, Graphics3::ZCompareLess);
+    Graphics3::setRenderState(Graphics3::Lighting, true);
+    Graphics3::setRenderState(Graphics3::Normalize, true);
 
     // Initialize material states
-    Graphics3::setMaterialState(SpecularColor, vec4(1, 1, 1, 1));
-    Graphics3::setMaterialState(ShininessExponent, 180.0f);
+    Graphics3::setMaterialState(Graphics3::SpecularColor, vec4(1, 1, 1, 1));
+    Graphics3::setMaterialState(Graphics3::ShininessExponent, 180.0f);
 
     debStep("Init Render States Done");
 
     // Load mesh and create vertex- and index buffers
-	vertexStructure.add(VertexCoord, Float3VertexData);
-	vertexStructure.add(VertexTexCoord0, Float2VertexData);
-	vertexStructure.add(VertexNormal, Float3VertexData);
+	vertexStructure.add(Graphics4::VertexCoord, Graphics4::Float3VertexData);
+	vertexStructure.add(Graphics4::VertexTexCoord0, Graphics4::Float2VertexData);
+	vertexStructure.add(Graphics4::VertexNormal, Graphics4::Float3VertexData);
 
     addMesh("Text_FixedFunctionOpenGL.obj", 0.4f);
     addMesh("UnderTessellatedCube.obj", 0.4f);
@@ -337,7 +337,7 @@ void releaseScene() {
         delete (*it);
     lights.clear();
 
-    for (std::vector<Texture*>::iterator it = textures.begin(); it != textures.end(); ++it)
+    for (std::vector<Graphics3::Texture*>::iterator it = textures.begin(); it != textures.end(); ++it)
         delete (*it);
     textures.clear();
 }
@@ -355,7 +355,7 @@ void onDrawFrame() {
 
     // Initailize face culling
     //Graphics3::setRenderState(BackfaceCulling, Clockwise); // for right-handed coordinate systems
-    Graphics3::setRenderState(BackfaceCulling, CounterClockwise);
+    Graphics3::setRenderState(Graphics3::BackfaceCulling, Graphics3::CounterClockwise);
 
     // Setup projection
     Graphics3::setProjectionMatrix(pMatrix);
@@ -379,64 +379,64 @@ void onDrawFrame() {
     }
 		
     // Setup texture mapping
-    TextureUnit texUnit0;
+	Graphics3::TextureUnit texUnit0;
     texUnit0.unit = 0;
 
     if (textureMappingEnabled)
     {
-        Graphics3::setTextureMipmapFilter(texUnit0, LinearMipFilter);
+        Graphics3::setTextureMipmapFilter(texUnit0, Graphics3::LinearMipFilter);
 
         if (activeScene >= 1 && activeScene <= 2)
         {
             Graphics3::setTexture(texUnit0, textures[0]);
-            Graphics3::setTexCoordGeneration(texUnit0, TexCoordX, TexGenDisabled);
-            Graphics3::setTexCoordGeneration(texUnit0, TexCoordY, TexGenDisabled);
-            Graphics3::setTextureMapping(texUnit0, Texture2D, true);
+            Graphics3::setTexCoordGeneration(texUnit0, Graphics3::TexCoordX, Graphics3::TexGenDisabled);
+            Graphics3::setTexCoordGeneration(texUnit0, Graphics3::TexCoordY, Graphics3::TexGenDisabled);
+            Graphics3::setTextureMapping(texUnit0, Graphics3::Texture2D, true);
         }
         else if (activeScene == 3)
         {
             Graphics3::setTexture(texUnit0, textures[1]);
-            Graphics3::setTexCoordGeneration(texUnit0, TexCoordX, TexGenSphereMap);
-            Graphics3::setTexCoordGeneration(texUnit0, TexCoordY, TexGenSphereMap);
-            Graphics3::setTextureMapping(texUnit0, Texture2D, true);
+            Graphics3::setTexCoordGeneration(texUnit0, Graphics3::TexCoordX, Graphics3::TexGenSphereMap);
+            Graphics3::setTexCoordGeneration(texUnit0, Graphics3::TexCoordY, Graphics3::TexGenSphereMap);
+            Graphics3::setTextureMapping(texUnit0, Graphics3::Texture2D, true);
         }
         else if (activeScene == 4)
         {
             Graphics3::setTexture(texUnit0, textures[2]);
-            Graphics3::setTexCoordGeneration(texUnit0, TexCoordX, TexGenDisabled);
-            Graphics3::setTexCoordGeneration(texUnit0, TexCoordY, TexGenDisabled);
-            Graphics3::setTextureMapping(texUnit0, Texture2D, true);
+            Graphics3::setTexCoordGeneration(texUnit0, Graphics3::TexCoordX, Graphics3::TexGenDisabled);
+            Graphics3::setTexCoordGeneration(texUnit0, Graphics3::TexCoordY, Graphics3::TexGenDisabled);
+            Graphics3::setTextureMapping(texUnit0, Graphics3::Texture2D, true);
         }
         else if (activeScene == 5)
         {
             Graphics3::setTexture(texUnit0, textures[3]);
-            Graphics3::setTexCoordGeneration(texUnit0, TexCoordX, TexGenDisabled);
-            Graphics3::setTexCoordGeneration(texUnit0, TexCoordY, TexGenDisabled);
-            Graphics3::setTextureMapping(texUnit0, Texture2D, true);
+            Graphics3::setTexCoordGeneration(texUnit0, Graphics3::TexCoordX, Graphics3::TexGenDisabled);
+            Graphics3::setTexCoordGeneration(texUnit0, Graphics3::TexCoordY, Graphics3::TexGenDisabled);
+            Graphics3::setTextureMapping(texUnit0, Graphics3::Texture2D, true);
         }
         else if (activeScene == 6)
         {
             Graphics3::setTexture(texUnit0, textures[4]);
-            Graphics3::setTexCoordGeneration(texUnit0, TexCoordX, TexGenDisabled);
-            Graphics3::setTexCoordGeneration(texUnit0, TexCoordY, TexGenDisabled);
-            Graphics3::setTextureMapping(texUnit0, Texture2D, true);
+            Graphics3::setTexCoordGeneration(texUnit0, Graphics3::TexCoordX, Graphics3::TexGenDisabled);
+            Graphics3::setTexCoordGeneration(texUnit0, Graphics3::TexCoordY, Graphics3::TexGenDisabled);
+            Graphics3::setTextureMapping(texUnit0, Graphics3::Texture2D, true);
         }
         else
-            Graphics3::setTextureMapping(texUnit0, Texture2D, false);
+            Graphics3::setTextureMapping(texUnit0, Graphics3::Texture2D, false);
     }
     else
-        Graphics3::setTextureMapping(texUnit0, Texture2D, false);
+        Graphics3::setTextureMapping(texUnit0, Graphics3::Texture2D, false);
 
 	// Setup Fog
 	static float fogInterval;
 	fogInterval += 1.0f;
-	Graphics3::setRenderState(FogStart, 1.0f);
-	Graphics3::setRenderState(FogEnd, ((Kore::cos(DEG_2_RAD(fogInterval)) + 1.0f) * 2.5f) + 2.0f);
-	Graphics3::setRenderState(FogDensity, (Kore::cos(DEG_2_RAD(fogInterval * 0.5f)) + 1.0f) * 0.5f);
+	Graphics3::setRenderState(Graphics3::FogStart, 1.0f);
+	Graphics3::setRenderState(Graphics3::FogEnd, ((Kore::cos(DEG_2_RAD(fogInterval)) + 1.0f) * 2.5f) + 2.0f);
+	Graphics3::setRenderState(Graphics3::FogDensity, (Kore::cos(DEG_2_RAD(fogInterval * 0.5f)) + 1.0f) * 0.5f);
 
-	Graphics3::setFogColor(Kore::Color(0xff808080));
-	Graphics3::setRenderState(FogType, activeFogType);
-	Graphics3::setRenderState(FogState, fogEnabled);
+	Graphics3::setFogColor(Graphics1::Color(0xff808080));
+	Graphics3::setRenderState(Graphics3::FogType, activeFogType);
+	Graphics3::setRenderState(Graphics3::FogState, fogEnabled);
 
     // Setup scene greometry
     MeshBuffer* meshBuf = meshBuffers[activeScene];
@@ -446,11 +446,11 @@ void onDrawFrame() {
     if (activeScene == 6)
     {
         // Set material states for particles
-	    Graphics3::setRenderState(DepthTest, false);
-        Graphics3::setRenderState(DepthWrite, false);
-        Graphics3::setRenderState(Lighting, false);
-        Graphics3::setRenderState(BlendingState, true);
-        Graphics3::setBlendingMode(SourceAlpha, InverseSourceAlpha);
+	    Graphics3::setRenderState(Graphics3::DepthTest, false);
+        Graphics3::setRenderState(Graphics3::DepthWrite, false);
+        Graphics3::setRenderState(Graphics3::Lighting, false);
+        Graphics3::setRenderState(Graphics3::BlendingState, true);
+        Graphics3::setBlendingMode(Graphics3::SourceAlpha, Graphics3::InverseSourceAlpha);
 
         // Setup view matrix
         Graphics3::setViewMatrix(vMatrix.Invert());
@@ -469,7 +469,7 @@ void onDrawFrame() {
                 wMatrixParticle.Set(i, 3, it->position[i]);
 
             Graphics3::setWorldMatrix(wMatrixParticle);
-            Graphics3::setMaterialState(SolidColor, vec4(1.0f, 1.0f, 1.0f, it->getAlpha()));
+            Graphics3::setMaterialState(Graphics3::SolidColor, vec4(1.0f, 1.0f, 1.0f, it->getAlpha()));
 
             // Draw particle quads
 	        Graphics3::drawIndexedVertices();
@@ -478,10 +478,10 @@ void onDrawFrame() {
     else
     {
         // Set material states for standard geometry
-	    Graphics3::setRenderState(DepthTest, true);
-        Graphics3::setRenderState(DepthWrite, true);
-        Graphics3::setRenderState(Lighting, true);
-        Graphics3::setRenderState(BlendingState, false);
+	    Graphics3::setRenderState(Graphics3::DepthTest, true);
+        Graphics3::setRenderState(Graphics3::DepthWrite, true);
+        Graphics3::setRenderState(Graphics3::Lighting, true);
+        Graphics3::setRenderState(Graphics3::BlendingState, false);
 
         // Setup view- and world matrices
         Graphics3::setViewMatrix(vMatrix.Invert());
@@ -519,15 +519,15 @@ void keyDown(KeyCode code, wchar_t character)
 			break;
 			
 		case Key_F1:
-			activeFogType = LinearFog;
+			activeFogType = Graphics3::LinearFog;
 			break;
 
 		case Key_F2:
-			activeFogType = ExpFog;
+			activeFogType = Graphics3::ExpFog;
 			break;
 
 		case Key_F3:
-			activeFogType = Exp2Fog;
+			activeFogType = Graphics3::Exp2Fog;
 			break;
 
         case Key_L:
